@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SP Group · Excel-to-Slide Studio</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
@@ -77,12 +78,17 @@
   .ws-body{flex:1;display:grid;grid-template-columns:264px 1fr;min-height:0}
   .ws-side{border-right:1px solid var(--line);background:var(--surface);padding:18px 14px;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
   .ws-side .lbl{font-size:10.5px;font-weight:700;letter-spacing:1.4px;color:var(--dim);margin:4px 6px 8px}
-  .srcitem{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:11px 12px;border-radius:10px;border:1px solid transparent;transition:.14s;position:relative}
+  .srcitem{display:flex;align-items:center;gap:2px;width:100%;padding:4px 6px;border-radius:10px;border:1px solid transparent;transition:.14s;position:relative}
   .srcitem:hover{background:var(--surface2)}
   .srcitem.sel{background:var(--teal-l);border-color:var(--teal-l2)}
-  .srcitem .srcname{flex:1;font-size:13.5px;font-weight:650;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .srcitem .srcmeta{font-size:11px;color:var(--muted)}
-  .srcitem .dot-upd{width:8px;height:8px;border-radius:50%;background:var(--amber);flex:none}
+  .srcsel{flex:1;display:flex;align-items:center;gap:8px;text-align:left;padding:7px 6px;min-width:0}
+  .srcsel .srcname{flex:1;font-size:13.5px;font-weight:650;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .srcsel .srcmeta{font-size:11px;color:var(--muted);flex:none}
+  .dot-upd{width:8px;height:8px;border-radius:50%;background:var(--amber);flex:none}
+  .srcic{opacity:0;width:25px;height:25px;border-radius:7px;color:var(--muted);font-size:12px;flex:none;display:grid;place-items:center;transition:.12s}
+  .srcitem:hover .srcic,.srcitem.sel .srcic{opacity:1}
+  .srcic:hover{background:var(--surface);color:var(--txt)}
+  .srcic.del:hover{color:var(--red);background:var(--red-l)}
   .ws-main{overflow-y:auto;padding:26px 30px}
 
   .ws-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:22px}
@@ -108,27 +114,44 @@
   .btn.primary.sm{padding:8px 13px}
 
   /* deck grid */
-  .deckgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
-  .deckcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 16px 14px;box-shadow:var(--shadow);transition:.15s;display:flex;flex-direction:column;gap:13px}
+  .seclabel{font-size:11px;font-weight:700;letter-spacing:1.2px;color:var(--dim);text-transform:uppercase;margin:0 2px 12px}
+  .deckgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+  .deckcard{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);transition:box-shadow .15s,border-color .15s}
   .deckcard:hover{box-shadow:var(--shadow-lg);border-color:var(--line2)}
-  .dc-top{display:flex;align-items:flex-start;gap:10px}
-  .dc-name{flex:1;font-size:15px;font-weight:700;color:var(--ink);line-height:1.3}
+  .dc-head{display:flex;align-items:flex-start;gap:8px}
+  .dc-name{flex:1;font-size:16px;font-weight:700;color:var(--ink);line-height:1.3}
+  .dc-right{display:flex;align-items:center;gap:6px;flex:none}
   .stp{font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;white-space:nowrap;flex:none}
   .stp.cur{color:var(--green);background:var(--green-l)}
   .stp.upd{color:var(--amber);background:var(--amber-l)}
   .stp.pin{color:var(--blue);background:var(--blue-l)}
-  .dc-track{display:flex;align-items:center;gap:0;padding:10px 12px;background:var(--surface2);border:1px solid var(--line);border-radius:10px}
-  .tdot{width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid var(--line2);flex:none}
-  .tdot.on{border-color:var(--teal);background:var(--teal)}
-  .tdot.lt{box-shadow:0 0 0 3px var(--teal-l)}
-  .tbar{flex:1;height:2px;background:var(--line2);min-width:14px}
-  .dc-on{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--muted);padding-left:10px}
-  .dc-foot{display:flex;align-items:center;gap:8px}
-  .sel{padding:7px 9px;border-radius:9px;border:1px solid var(--line2);background:var(--surface);color:var(--txt);font-size:12px;font-weight:600}
-  .dc-btns{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .kebab{width:30px;height:30px;border-radius:8px;border:1px solid transparent;color:var(--muted);font-size:18px;line-height:1;display:grid;place-items:center}
+  .kebab:hover{background:var(--surface2);color:var(--txt)}
+  .dc-version{font-size:13px;color:var(--muted);margin:13px 0 16px;display:flex;align-items:center;gap:8px}
+  .dc-version .vico{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none}
+  .dc-version.upd{color:var(--amber)} .dc-version.upd .vico{background:var(--amber)}
+  .dc-version.pin{color:var(--blue)} .dc-version.pin .vico{background:var(--blue)}
+  .dc-version.cur{color:var(--green)} .dc-version.cur .vico{background:var(--green)}
+  .btn.block{width:100%;justify-content:center;padding:11px}
+  .cardmenu{position:absolute;top:50px;right:16px;z-index:30;width:250px;background:var(--surface);border:1px solid var(--line2);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px}
+  .mi{display:block;width:100%;text-align:left;padding:9px 11px;border-radius:8px;font-size:13px;color:var(--txt);cursor:pointer}
+  .mi:hover{background:var(--surface2)}
+  .mi.on{color:var(--teal);font-weight:600}
+  .mi.on::after{content:"✓";float:right;color:var(--teal)}
+  .mi.danger{color:var(--red)} .mi.danger:hover{background:var(--red-l)}
+  .mlabel{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);padding:9px 11px 4px}
+  .mdiv{height:1px;background:var(--line);margin:6px 4px}
+  .btn.primary.danger-btn{background:var(--red);border-color:var(--red)}
+  .dlg-input{width:100%;padding:11px 13px;border-radius:9px;border:1px solid var(--line2);background:var(--surface2);font-size:14px;font-family:inherit;margin-bottom:16px}
+  .dlg-input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-l)}
   .linkbtn{font-size:11.5px;color:var(--muted);padding:4px 6px;border-radius:7px}
   .linkbtn:hover{color:var(--red);background:var(--red-l)}
   .linkbtn.rn:hover{color:var(--teal);background:var(--teal-l)}
+  .srcmanage{display:flex;gap:6px;margin-top:9px}
+  .vacts{display:flex;gap:5px;justify-content:center;margin-top:7px}
+  .vmini{width:24px;height:22px;border-radius:6px;border:1px solid var(--line2);background:var(--surface);color:var(--muted);font-size:11px;line-height:1}
+  .vmini:hover{background:var(--surface2);color:var(--txt)}
+  .vmini.del:hover{color:var(--red);border-color:var(--red-l)}
 
   /* empty state */
   .empty{max-width:760px;margin:30px auto;text-align:center}
@@ -325,6 +348,18 @@
   </div>
 </div>
 
+<!-- styled prompt / confirm dialog -->
+<div class="modal hidden" id="dlg">
+  <div class="modal-card" style="width:min(420px,94vw)">
+    <div class="modal-head"><b id="dlgTitle">Confirm</b><button class="xbtn" id="dlgX">&#10005;</button></div>
+    <div class="modal-body">
+      <div id="dlgMsg" class="muted" style="font-size:13.5px;line-height:1.55;margin-bottom:16px"></div>
+      <input id="dlgInput" class="dlg-input hidden" type="text" />
+      <div class="modal-foot" style="justify-content:flex-end;margin-top:0"><button class="btn" id="dlgCancel">Cancel</button><button class="btn primary" id="dlgOk">Confirm</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- popovers -->
 <div class="pop hidden" id="themePop">
   <h3>Theme &amp; branding</h3><p class="desc">Restyle every slide. Swap a template or fine-tune colours.</p>
@@ -332,6 +367,7 @@
   <div class="fld"><label>Template</label><select id="tplSel">
     <option value="sp">SP Classic (teal / navy)</option><option value="light">Light Minimal</option>
     <option value="exec">Midnight Executive</option><option value="energy">Energy (green)</option></select></div>
+  <div class="fld"><label>Import PowerPoint template (.pptx)</label><input type="file" id="tplFile" accept=".pptx" style="width:100%;font-size:12px" /><div id="tplMsg" class="muted" style="font-size:11px;margin-top:6px;line-height:1.45">Pulls the colours, heading font and logo from your own .pptx and applies them.</div></div>
   <div class="fld"><label>Colours</label><div class="colors">
     <div class="c">Primary<input type="color" id="cPrimary" /></div>
     <div class="c">Accent<input type="color" id="cAccent" /></div>
